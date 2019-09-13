@@ -1,0 +1,34 @@
+defaults: &defaults
+  working_directory: /cloud_sql_backup
+
+version: 2
+jobs:
+  docker_build_and_push:
+    <<: *defaults
+
+    docker:
+      - image: docker
+
+    steps:
+      - checkout
+
+      - setup_remote_docker:
+          docker_layer_caching: true
+
+      - run:
+          name:
+          command: |
+            docker build -t ovotech/cloud_sql_backup:latest .
+            echo $DOCKER_PASS | docker login -u=$DOCKER_USER --password-stdin
+            docker push ovotech/cloud_sql_backup
+
+workflows:
+  version: 2
+  release_pipeline:
+    jobs:
+      - docker_build_and_push:
+          filters:
+            tags:
+              only: /v[0-9]+(\.[0-9]+)*(-.*)*/
+            branches:
+              ignore: /.*/
