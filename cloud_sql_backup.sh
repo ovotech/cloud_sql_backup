@@ -32,7 +32,7 @@ TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
 echo_out "Grabbing details of the latest GCP backup to create sql backup from"
 BACKUP_DATA=$(gcloud sql backups list \
-  --instance SOURCE_BACKUP_INSTANCE \
+  --instance $SOURCE_BACKUP_INSTANCE \
   --filter STATUS=SUCCESSFUL \
   --limit 1 | sed 1,1d | tr -s ' ')
 BACKUP_ID=$(echo "$BACKUP_DATA" | cut -d ' ' -f 1)
