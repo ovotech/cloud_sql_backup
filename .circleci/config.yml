@@ -16,11 +16,27 @@ jobs:
           docker_layer_caching: true
 
       - run:
-          name:
+          name: "Docker  build and push"
           command: |
             docker build -t ovotech/cloud_sql_backup:latest .
             echo $DOCKER_PASS | docker login -u=$DOCKER_USER --password-stdin
             docker push ovotech/cloud_sql_backup
+
+  shellcheck:
+    <<: *defaults
+
+    docker:
+      - image: koalaman/shellcheck
+
+    steps:
+      - checkout
+
+      - run:
+          name: "Shellcheck"
+          command: |
+            shellcheck /cloud_sql_backup/cloud_sql_backup.sh
+
+    
 
 workflows:
   version: 2
@@ -32,3 +48,14 @@ workflows:
               only: /v[0-9]+(\.[0-9]+)*(-.*)*/
             branches:
               ignore: /.*/
+      - shellcheck:
+          filters:
+            tags:
+              only: /v[0-9]+(\.[0-9]+)*(-.*)*/
+            branches:
+              ignore: /.*/
+  master_pipeline:
+    jobs:
+      - shellcheck:
+            branches:
+              only: master
