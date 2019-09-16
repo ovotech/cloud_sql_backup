@@ -36,8 +36,6 @@ jobs:
           command: |
             shellcheck /cloud_sql_backup/cloud_sql_backup.sh
 
-    
-
 workflows:
   version: 2
   release_pipeline:
@@ -57,5 +55,6 @@ workflows:
   master_pipeline:
     jobs:
       - shellcheck:
+          filters:
             branches:
               only: master
