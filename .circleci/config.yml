@@ -6,7 +6,6 @@ defaults: &defaults
 orbs:
   shellcheck: circleci/shellcheck@1.3.14
 
-version: 2
 jobs:
   docker_build_and_push:
     <<: *defaults
