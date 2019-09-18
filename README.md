@@ -60,3 +60,13 @@ When this script runs using a GCP service account, it'll need a specific set of 
     "storage.buckets.update",
   ]
   ```
+
+  ## Notes
+
+  ### Permissive Role
+
+  The least privileged role for the script to succeed, as detailed [here](#what-permissions-are-required), is permissive. The `"cloudsql.instances.delete"` permission alone will allow anyone with the key, for the GCP service account you use, to delete any Cloud SQL instance in its GCP project.
+
+  ### Instance Deletion
+
+  The final step in `cloud_sql_backup.sh` is to delete the ephemeral db instance that's been used to create the SQL dump. There's a hard-coded check at this point in the script to only perform the instance deletion when the instance name contains the string `"backup"`.
