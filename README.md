@@ -10,7 +10,7 @@ The `cloud_sql_backup.sh` script can be used on its own, or in a [Docker image](
 ### Pre-requisites
 
 1. An automated or on-demand GCP managed backup. Go [here](https://cloud.google.com/sql/docs/mysql/backup-recovery/backing-up) for help enabling.
-2. The host running the script runs must have these tools installed:
+2. The host running the script must have these tools installed:
 
     - cut
     - date
