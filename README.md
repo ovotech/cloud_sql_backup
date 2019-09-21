@@ -1,11 +1,23 @@
 # cloud_sql_backup
 [![CircleCI](https://circleci.com/gh/ovotech/cloud_sql_backup/tree/master.svg?style=svg&circle-token=80b72848ac9c5222d1b58b480a261b83ad8cc1e3)](https://circleci.com/gh/ovotech/cloud_sql_backup/tree/master)
 
-This is a bash script that can be used for backing up GCP Cloud SQL instances.
+This is a bash script that can be used for backing up GCP Cloud SQL instances. It works by restoring an existing GCP managed backup to a new ephemeral db instance, and exporting an SQL dump from there into a GCS bucket.
 
 ## Install
 
 The `cloud_sql_backup.sh` script can be used on its own, or in a [Docker image](https://hub.docker.com/r/ovotech/cloud_sql_backup) we've prepared.
+
+### Pre-requisites
+
+1. An automated or on-demand GCP managed backup. Go [here](https://cloud.google.com/sql/docs/mysql/backup-recovery/backing-up) for help enabling.
+2. The host running the script runs must have these tools installed:
+
+    - cut
+    - date
+    - gcloud
+    - head
+    - sed
+    - tr
 
 ## Configuring
 
@@ -61,12 +73,43 @@ When this script runs using a GCP service account, it'll need a specific set of 
   ]
   ```
 
-  ## Notes
+## Notes
 
-  ### Permissive Role
+### Permissive Role
 
-  The least privileged role for the script to succeed, as detailed [here](#what-permissions-are-required), is permissive. The `"cloudsql.instances.delete"` permission alone will allow anyone with the key, for the GCP service account you use, to delete any Cloud SQL instance in its GCP project.
+The least privileged role for the script to succeed, as detailed [here](#what-permissions-are-required), is permissive. The `"cloudsql.instances.delete"` permission alone will allow anyone with the key, for the GCP service account you use, to delete any Cloud SQL instance in its GCP project.
 
-  ### Instance Deletion
+### Instance Deletion
 
-  The final step in `cloud_sql_backup.sh` is to delete the ephemeral db instance that's been used to create the SQL dump. There's a hard-coded check at this point in the script to only perform the instance deletion when the instance name contains the string `"backup"`.
+The final step in `cloud_sql_backup.sh` is to delete the ephemeral db instance that's been used to create the SQL dump. There's a hard-coded check at this point in the script to only perform the instance deletion when the instance name contains the string `"backup"`.
+
+### Naming Format
+
+To prevent a race condition, the script creates a name, to be used for both the ephemeral instance and the S3 SQL dump object, that's suffixed by a 5 character random string:
+
+```
+name = <instance_name_prefix>-<instance_env>-<timestamp>-<gcp_managed_backup_id>-<random_string>
+```
+
+- `timestamp` is obtained by executing `date +%Y%m%d%H%M%S`
+- `instance_name_prefix` and `instance_env` are obtained from [env vars](#Configuring)
+- `gcp_managed_backup_id` is the ID of the latest GCP managed backup
+- `random_string` is the value of `LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 5`
+
+### Backup candidate
+
+The ID of the latest successful GCP managed backup is obtained using:
+
+```bash
+BACKUP_DATA=$(gcloud sql backups list \
+  --instance "$SOURCE_BACKUP_INSTANCE" \
+  --filter STATUS=SUCCESSFUL \
+  --limit 1 | sed 1,1d | tr -s ' ')
+BACKUP_ID=$(echo "$BACKUP_DATA" | cut -d ' ' -f 1)
+```
+
+Whilst it's recommended to monitor for failed/successful `cloud_sql_backup.sh` script executions, this can't be relied upon to report freshness of data. For example, your GCP managed backups may start failing, but the `cloud_sql_backup.sh` script will keep succeeding, but with out-of-date data (based on the last successful GCP managed backup).
+
+### Completion Check
+
+The penultimate task of the `cloud_sql_backup.sh` script is to poll GCS using `gsutil` to verify the object (SQL dump) has arrived in GCS as expected. This has to be performed out-of-band of the SQL dump process, as the dump is an operation that's triggered on the ephemeral db instance (using `gcloud sql export sql`).
