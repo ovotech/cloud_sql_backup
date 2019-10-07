@@ -14,6 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+function cleanup() {
+  echo
+  echo '==================================================================================================='
+  echo '|'
+  echo '| Revoking the new DB instance''s service account permission to write to GCS bucket'
+  echo '|'
+  echo '==================================================================================================='
+  echo
+
+  echo "Removing write access on $TARGET_BACKUP_BUCKET for $DB_SA_ID"
+  gsutil acl ch -d "$DB_SA_ID" "$TARGET_BACKUP_BUCKET"
+
+  echo
+  echo '==================================================================================================='
+  echo '|'
+  echo '| Deleting new ephemeral DB instance'
+  echo '|'
+  echo '==================================================================================================='
+  echo
+
+  echo "Deleting ephemeral db instance used for backup: $TARGET_BACKUP_INSTANCE"
+  if [[ $TARGET_BACKUP_INSTANCE == *"backup"* ]]; then
+    gcloud -q sql instances delete "$TARGET_BACKUP_INSTANCE"
+  else
+    echo "String 'backup' not detected in target backup instance. Not deleting anything.."
+  fi
+}
+
+trap cleanup EXIT
+
 set -e
 
 command -v cut >/dev/null 2>&1 || { echo "cut is required"; invalid=true; }
@@ -128,7 +158,7 @@ echo_out "Creating SQL backup file of instance: $TARGET_BACKUP_INSTANCE and expo
 export_rs=$(gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
   --database="$DB_NAME" 2>&1 || true)
 
-if [[ $export_rs != *"sql operations wait"* ]];then
+if [[ $export_rs != *"sql operations wait"* ]] && [[ $export_rs != *"done"* ]] ;then
   echo_out "Unexpected response returned for 'gcloud sql export sql...' command: $export_rs"
   exit 1
 fi
@@ -167,20 +197,3 @@ do
 done
 set -e
 
-echo_out "Removing write access on $TARGET_BACKUP_BUCKET for $DB_SA_ID"
-gsutil acl ch -d "$DB_SA_ID" "$TARGET_BACKUP_BUCKET"
-
-echo
-echo '==================================================================================================='
-echo '|'
-echo '| Deleting new ephemeral DB instance'
-echo '|'
-echo '==================================================================================================='
-echo
-
-echo_out "Deleting ephemeral db instance used for backup: $TARGET_BACKUP_INSTANCE"
-if [[ $TARGET_BACKUP_INSTANCE == *"backup"* ]];then
-  gcloud -q sql instances delete "$TARGET_BACKUP_INSTANCE"
-else
-  echo_out "String 'backup' not detected in target backup instance. Not deleting anything.."
-fi
