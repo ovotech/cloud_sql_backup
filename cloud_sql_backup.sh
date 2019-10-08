@@ -24,7 +24,6 @@ command -v sed >/dev/null 2>&1 || { echo "sed is required"; invalid=true; }
 command -v tr >/dev/null 2>&1 || { echo "tr is required"; invalid=true; }
 
 [ -z "$DB_VERSION" ] && echo "DB_VERSION is required"; invalid=true
-[ -z "$DB_NAME" ] && echo "DB_NAME is required"; invalid=true
 [ -z "$INSTANCE_CPU" ] && echo "INSTANCE_CPU is required"; invalid=true
 [ -z "$INSTANCE_ENV" ] && echo "INSTANCE_ENV is required"; invalid=true
 [ -z "$INSTANCE_MEM" ] && echo "INSTANCE_MEM is required"; invalid=true

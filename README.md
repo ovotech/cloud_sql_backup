@@ -26,7 +26,7 @@ The script requires some environment variables in order to function correctly:
 | Name        | Description   | Example |
 | ------------- |-------------|-------------|
 | DB_VERSION    | The version of the ephemeral database instance that'll be created | "POSTGRES_9_6" |
-| DB_NAME       | The database name that'll be exported to GCS | "my-db" |
+| DB_NAME       | The database name that'll be exported to GCS - if not specified all databases will be exported | "my-db" |
 | INSTANCE_CPU  | vCPUs of the ephemeral instance | "4" |
 | INSTANCE_ENV | Name of environment the backup process is running in. It's used in the ephemeral instance name | "nonprod" |
 | INSTANCE_MEM | Memory of instance | "7680MiB" |
