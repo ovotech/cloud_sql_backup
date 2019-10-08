@@ -14,6 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+function echo_out() {
+  echo "[$(date +%F_%T)] $1"
+}
+
 function cleanup() {
   echo
   echo '==================================================================================================='
@@ -23,7 +27,7 @@ function cleanup() {
   echo '==================================================================================================='
   echo
 
-  echo "Removing write access on $TARGET_BACKUP_BUCKET for $DB_SA_ID"
+  echo_out "Removing write access on $TARGET_BACKUP_BUCKET for $DB_SA_ID"
   gsutil acl ch -d "$DB_SA_ID" "$TARGET_BACKUP_BUCKET"
 
   echo
@@ -34,11 +38,11 @@ function cleanup() {
   echo '==================================================================================================='
   echo
 
-  echo "Deleting ephemeral db instance used for backup: $TARGET_BACKUP_INSTANCE"
+  echo_out "Deleting ephemeral db instance used for backup: $TARGET_BACKUP_INSTANCE"
   if [[ $TARGET_BACKUP_INSTANCE == *"backup"* ]]; then
     gcloud -q sql instances delete "$TARGET_BACKUP_INSTANCE"
   else
-    echo "String 'backup' not detected in target backup instance. Not deleting anything.."
+    echo_out "String 'backup' not detected in target backup instance. Not deleting anything.."
   fi
 }
 
@@ -46,34 +50,61 @@ trap cleanup EXIT
 
 set -e
 
-command -v cut >/dev/null 2>&1 || { echo "cut is required"; invalid=true; }
-command -v date >/dev/null 2>&1 || { echo "date is required"; invalid=true; }
-command -v gcloud >/dev/null 2>&1 || { echo "gcloud is required"; invalid=true; }
-command -v head >/dev/null 2>&1 || { echo "head is required"; invalid=true; }
-command -v sed >/dev/null 2>&1 || { echo "sed is required"; invalid=true; }
-command -v tr >/dev/null 2>&1 || { echo "tr is required"; invalid=true; }
-
-[ -z "$DB_VERSION" ] && echo "DB_VERSION is required"; invalid=true
-[ -z "$DB_NAME" ] && echo "DB_NAME is required"; invalid=true
-[ -z "$INSTANCE_CPU" ] && echo "INSTANCE_CPU is required"; invalid=true
-[ -z "$INSTANCE_ENV" ] && echo "INSTANCE_ENV is required"; invalid=true
-[ -z "$INSTANCE_MEM" ] && echo "INSTANCE_MEM is required"; invalid=true
-[ -z "$INSTANCE_NAME_PREFIX" ] && echo "INSTANCE_NAME_PREFIX is required"; invalid=true
-[ -z "$INSTANCE_REGION" ] && echo "INSTANCE_REGION is required"; invalid=true
-[ -z "$INSTANCE_STORAGE_SIZE_GB" ] && echo "INSTANCE_STORAGE_SIZE_GB is required"; invalid=true
-[ -z "$INSTANCE_STORAGE_TYPE" ] && echo "INSTANCE_STORAGE_TYPE is required"; invalid=true
-[ -z "$PROJECT" ] && echo "PROJECT is required"; invalid=true
-[ -z "$SA_KEY_FILEPATH" ] && echo "SA_KEY_FILEPATH is required"; invalid=true
-[ -z "$SOURCE_BACKUP_INSTANCE" ] && echo "SOURCE_BACKUP_INSTANCE is required"; invalid=true
-[ -z "$TARGET_BACKUP_BUCKET" ] && echo "TARGET_BACKUP_BUCKET is required"; invalid=true
-
-if [ "$invalid" = true ] ; then
-    exit 1
-fi
-
-function echo_out {
-  echo "[$(date +%F_%T)] $1"
+command -v cut >/dev/null 2>&1 || {
+  echo "cut is required"
+  invalid=true
 }
+command -v date >/dev/null 2>&1 || {
+  echo "date is required"
+  invalid=true
+}
+command -v gcloud >/dev/null 2>&1 || {
+  echo "gcloud is required"
+  invalid=true
+}
+command -v head >/dev/null 2>&1 || {
+  echo "head is required"
+  invalid=true
+}
+command -v sed >/dev/null 2>&1 || {
+  echo "sed is required"
+  invalid=true
+}
+command -v tr >/dev/null 2>&1 || {
+  echo "tr is required"
+  invalid=true
+}
+
+[ -z "$DB_VERSION" ] && echo "DB_VERSION is required"
+invalid=true
+[ -z "$DB_NAME" ] && echo "DB_NAME is required"
+invalid=true
+[ -z "$INSTANCE_CPU" ] && echo "INSTANCE_CPU is required"
+invalid=true
+[ -z "$INSTANCE_ENV" ] && echo "INSTANCE_ENV is required"
+invalid=true
+[ -z "$INSTANCE_MEM" ] && echo "INSTANCE_MEM is required"
+invalid=true
+[ -z "$INSTANCE_NAME_PREFIX" ] && echo "INSTANCE_NAME_PREFIX is required"
+invalid=true
+[ -z "$INSTANCE_REGION" ] && echo "INSTANCE_REGION is required"
+invalid=true
+[ -z "$INSTANCE_STORAGE_SIZE_GB" ] && echo "INSTANCE_STORAGE_SIZE_GB is required"
+invalid=true
+[ -z "$INSTANCE_STORAGE_TYPE" ] && echo "INSTANCE_STORAGE_TYPE is required"
+invalid=true
+[ -z "$PROJECT" ] && echo "PROJECT is required"
+invalid=true
+[ -z "$SA_KEY_FILEPATH" ] && echo "SA_KEY_FILEPATH is required"
+invalid=true
+[ -z "$SOURCE_BACKUP_INSTANCE" ] && echo "SOURCE_BACKUP_INSTANCE is required"
+invalid=true
+[ -z "$TARGET_BACKUP_BUCKET" ] && echo "TARGET_BACKUP_BUCKET is required"
+invalid=true
+
+if [ "$invalid" = true ]; then
+  exit 1
+fi
 
 echo_out "Setting up local gcloud"
 gcloud auth activate-service-account --key-file="$SA_KEY_FILEPATH"
@@ -126,7 +157,7 @@ echo_out "Restoring to $TARGET_BACKUP_INSTANCE from daily GCP backup (id: $BACKU
 restore_rs=$(gcloud -q sql backups restore "$BACKUP_ID" \
   --restore-instance="$TARGET_BACKUP_INSTANCE" \
   --backup-instance="$SOURCE_BACKUP_INSTANCE" 2>&1 || true)
-if [[ "${restore_rs}" != *"Restored"* ]];then
+if [[ "${restore_rs}" != *"Restored"* ]]; then
   echo_out "Restore hasn't finished, sleeping to allow that to happen"
   sleep 600
 fi
@@ -158,7 +189,7 @@ echo_out "Creating SQL backup file of instance: $TARGET_BACKUP_INSTANCE and expo
 export_rs=$(gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
   --database="$DB_NAME" 2>&1 || true)
 
-if [[ $export_rs != *"sql operations wait"* ]] && [[ $export_rs != *"done"* ]] ;then
+if [[ $export_rs != *"sql operations wait"* ]] && [[ $export_rs != *"done"* ]]; then
   echo_out "Unexpected response returned for 'gcloud sql export sql...' command: $export_rs"
   exit 1
 fi
@@ -180,15 +211,13 @@ echo_out "Polling GCS to check the new object exists: $TARGET_BACKUP_URI (max_ch
 
 # disable non-zero status exit so 'gsutil -q stat' doesn't throw us out
 set +e
-while :
-do
-  (( NUM_CHECKS++ ))
-  if gsutil -q stat "$TARGET_BACKUP_URI"
-  then
+while :; do
+  ((NUM_CHECKS++))
+  if gsutil -q stat "$TARGET_BACKUP_URI"; then
     echo_out "Object found in bucket"
     break
   fi
-  if [[ $NUM_CHECKS == "$MAX_CHECKS"  ]]; then
+  if [[ $NUM_CHECKS == "$MAX_CHECKS" ]]; then
     echo_out "Reached check limit ($MAX_CHECKS). This is a failure, aborting"
     break
   fi
@@ -196,4 +225,3 @@ do
   sleep "$SLEEP_SECONDS"
 done
 set -e
-
