@@ -46,8 +46,6 @@ function cleanup() {
   fi
 }
 
-trap cleanup EXIT
-
 set -e
 
 command -v cut >/dev/null 2>&1 || {
@@ -144,6 +142,8 @@ gcloud sql instances create "$TARGET_BACKUP_INSTANCE" \
   --storage-type="$INSTANCE_STORAGE_TYPE" \
   --storage-size="$INSTANCE_STORAGE_SIZE_GB" \
   --database-version="$DB_VERSION"
+
+trap cleanup EXIT
 
 echo
 echo '==================================================================================================='
