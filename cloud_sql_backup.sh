@@ -18,6 +18,8 @@ function echo_out() {
   echo "[$(date +%F_%T)] $1"
 }
 
+echo_out Starting backup job...
+
 function cleanup() {
   echo
   echo '==================================================================================================='
@@ -48,60 +50,29 @@ function cleanup() {
 
 set -e
 
-command -v cut >/dev/null 2>&1 || {
-  echo "cut is required"
-  invalid=true
-}
-command -v date >/dev/null 2>&1 || {
-  echo "date is required"
-  invalid=true
-}
-command -v gcloud >/dev/null 2>&1 || {
-  echo "gcloud is required"
-  invalid=true
-}
-command -v head >/dev/null 2>&1 || {
-  echo "head is required"
-  invalid=true
-}
-command -v sed >/dev/null 2>&1 || {
-  echo "sed is required"
-  invalid=true
-}
-command -v tr >/dev/null 2>&1 || {
-  echo "tr is required"
-  invalid=true
-}
+command -v cut >/dev/null 2>&1 || { echo "cut is required" && invalid=true; }
+command -v date >/dev/null 2>&1 || { echo "date is required" && invalid=true; }
+command -v gcloud >/dev/null 2>&1 || { echo "gcloud is required" && invalid=true; }
+command -v head >/dev/null 2>&1 || { echo "head is required" && invalid=true; }
+command -v sed >/dev/null 2>&1 || { echo "sed is required" && invalid=true; }
+command -v tr >/dev/null 2>&1 || { echo "tr is required" && invalid=true; }
 
-[ -z "$DB_VERSION" ] && echo "DB_VERSION is required"
-invalid=true
-[ -z "$DB_NAME" ] && echo "DB_NAME is required"
-invalid=true
-[ -z "$INSTANCE_CPU" ] && echo "INSTANCE_CPU is required"
-invalid=true
-[ -z "$INSTANCE_ENV" ] && echo "INSTANCE_ENV is required"
-invalid=true
-[ -z "$INSTANCE_MEM" ] && echo "INSTANCE_MEM is required"
-invalid=true
-[ -z "$INSTANCE_NAME_PREFIX" ] && echo "INSTANCE_NAME_PREFIX is required"
-invalid=true
-[ -z "$INSTANCE_REGION" ] && echo "INSTANCE_REGION is required"
-invalid=true
-[ -z "$INSTANCE_STORAGE_SIZE_GB" ] && echo "INSTANCE_STORAGE_SIZE_GB is required"
-invalid=true
-[ -z "$INSTANCE_STORAGE_TYPE" ] && echo "INSTANCE_STORAGE_TYPE is required"
-invalid=true
-[ -z "$PROJECT" ] && echo "PROJECT is required"
-invalid=true
-[ -z "$SA_KEY_FILEPATH" ] && echo "SA_KEY_FILEPATH is required"
-invalid=true
-[ -z "$SOURCE_BACKUP_INSTANCE" ] && echo "SOURCE_BACKUP_INSTANCE is required"
-invalid=true
-[ -z "$TARGET_BACKUP_BUCKET" ] && echo "TARGET_BACKUP_BUCKET is required"
-invalid=true
+[ -z "$DB_VERSION" ] && echo "DB_VERSION is required" && invalid=true
+[ -z "$DB_NAME" ] && echo "DB_NAME is required" && invalid=true
+[ -z "$INSTANCE_CPU" ] && echo "INSTANCE_CPU is required" && invalid=true
+[ -z "$INSTANCE_ENV" ] && echo "INSTANCE_ENV is required" && invalid=true
+[ -z "$INSTANCE_MEM" ] && echo "INSTANCE_MEM is required" && invalid=true
+[ -z "$INSTANCE_NAME_PREFIX" ] && echo "INSTANCE_NAME_PREFIX is required" && invalid=true
+[ -z "$INSTANCE_REGION" ] && echo "INSTANCE_REGION is required" && invalid=true
+[ -z "$INSTANCE_STORAGE_SIZE_GB" ] && echo "INSTANCE_STORAGE_SIZE_GB is required" && invalid=true
+[ -z "$INSTANCE_STORAGE_TYPE" ] && echo "INSTANCE_STORAGE_TYPE is required" && invalid=true
+[ -z "$PROJECT" ] && echo "PROJECT is required" && invalid=true
+[ -z "$SA_KEY_FILEPATH" ] && echo "SA_KEY_FILEPATH is required" && invalid=true
+[ -z "$SOURCE_BACKUP_INSTANCE" ] && echo "SOURCE_BACKUP_INSTANCE is required" && invalid=true
+[ -z "$TARGET_BACKUP_BUCKET" ] && echo "TARGET_BACKUP_BUCKET is required" && invalid=true
 
-if [ "$invalid" = true ]; then
-  exit 1
+if [ "$invalid" = true ] ; then
+    exit 1
 fi
 
 echo_out "Setting up local gcloud"
