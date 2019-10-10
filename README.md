@@ -70,6 +70,7 @@ When this script runs using a GCP service account, it'll need a specific set of 
     "storage.buckets.getIamPolicy",
     "storage.buckets.setIamPolicy",
     "storage.buckets.update",
+    "storage.objects.get"
   ]
   ```
 
