@@ -24,17 +24,6 @@ function cleanup() {
   echo
   echo '==================================================================================================='
   echo '|'
-  echo '| Revoking the new DB instance''s service account permission to write to GCS bucket'
-  echo '|'
-  echo '==================================================================================================='
-  echo
-
-  echo_out "Removing write access on $TARGET_BACKUP_BUCKET for $DB_SA_ID"
-  gsutil acl ch -d "$DB_SA_ID" "$TARGET_BACKUP_BUCKET"
-
-  echo
-  echo '==================================================================================================='
-  echo '|'
   echo '| Deleting new ephemeral DB instance'
   echo '|'
   echo '==================================================================================================='
@@ -46,6 +35,17 @@ function cleanup() {
   else
     echo_out "String 'backup' not detected in target backup instance. Not deleting anything.."
   fi
+
+  echo
+  echo '==================================================================================================='
+  echo '|'
+  echo '| Revoking the new DB instance''s service account permission to write to GCS bucket'
+  echo '|'
+  echo '==================================================================================================='
+  echo
+
+  echo_out "Removing write access on $TARGET_BACKUP_BUCKET for $DB_SA_ID"
+  gsutil acl ch -d "$DB_SA_ID" "$TARGET_BACKUP_BUCKET"
 }
 
 set -e
@@ -189,7 +189,7 @@ while :; do
     break
   fi
   if [[ $NUM_CHECKS == "$MAX_CHECKS" ]]; then
-    echo_out "Reached check limit ($MAX_CHECKS). This is a failure, aborting"
+    echo_out "Reached check limit ($MAX_CHECKS). Aborting, but the 'gcloud sql export sql' op may still be in progress"
     break
   fi
   echo_out "Backup file not found in bucket, checking again in $SLEEP_SECONDS seconds"
