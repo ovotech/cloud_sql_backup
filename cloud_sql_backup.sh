@@ -19,17 +19,18 @@ function echo_out() {
 }
 
 function post_count_metric() {
-  hostname=$(hostname)
-  currenttime=$(date +%s)
-  curl  -X POST -H "Content-type: application/json" \
-  -d "{ \"series\" :
-           [{\"metric\":\"$1\",
-            \"points\":[[$currenttime, 1]],
-            \"type\":\"count\",
-            \"interval\": 20,
-            \"host\":\"$hostname\",
-            \"tags\":[\"environment:$INSTANCE_ENV\",\"team:$TEAM\"]}
-           ]
+  if [[ ! -z $DATADOG_API_KEY ]];then
+    hostname=$(hostname)
+    currenttime=$(date +%s)
+    curl  -X POST -H "Content-type: application/json" \
+    -d "{ \"series\" :
+             [{\"metric\":\"$1\",
+              \"points\":[[$currenttime, 1]],
+              \"type\":\"count\",
+              \"interval\": 20,
+              \"host\":\"$hostname\",
+              \"tags\":[\"environment:$INSTANCE_ENV\",\"team:$TEAM\"]}
+            ]
     }" \
     "https://api.datadoghq.com/api/v1/series?api_key=$DATADOG_API_KEY"
   fi
@@ -38,12 +39,11 @@ function post_count_metric() {
 echo_out Starting backup job...
 
 function cleanup() {
-  if [[ ! -z $DATADOG_API_KEY ]];then
-    post_count_metric "cloud.sql.backup.count"
-    if [[ $success -eq 1 ]]; then
-      post_count_metric "cloud.sql.backup.success.count"
-    else
-      post_count_metric "cloud.sql.backup.failure.count"
+  post_count_metric "cloud.sql.backup.count"
+  if [[ $success -eq 1 ]]; then
+    post_count_metric "cloud.sql.backup.success.count"
+  else
+    post_count_metric "cloud.sql.backup.failure.count"
   fi
   echo
   echo '==================================================================================================='
@@ -56,6 +56,7 @@ function cleanup() {
   echo_out "Deleting ephemeral db instance used for backup: $TARGET_BACKUP_INSTANCE"
   if [[ $TARGET_BACKUP_INSTANCE == *"backup"* ]]; then
     gcloud -q sql instances delete "$TARGET_BACKUP_INSTANCE"
+    post_count_metric "cloud.sql.backup.cleanup.count"
   else
     echo_out "String 'backup' not detected in target backup instance. Not deleting anything.."
   fi
@@ -149,6 +150,7 @@ echo '|'
 echo '==================================================================================================='
 echo
 
+post_count_metric "cloud.sql.backup.started.count"
 echo_out "Restoring to $TARGET_BACKUP_INSTANCE from daily GCP backup (id: $BACKUP_ID) which was created at $BACKUP_TS"
 restore_rs=$(gcloud -q sql backups restore "$BACKUP_ID" \
   --restore-instance="$TARGET_BACKUP_INSTANCE" \
