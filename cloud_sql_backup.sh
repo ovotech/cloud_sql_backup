@@ -18,9 +18,33 @@ function echo_out() {
   echo "[$(date +%F_%T)] $1"
 }
 
+function post_count_metric() {
+  hostname=$(hostname)
+  currenttime=$(date +%s)
+  curl  -X POST -H "Content-type: application/json" \
+  -d "{ \"series\" :
+           [{\"metric\":\"$1\",
+            \"points\":[[$currenttime, 1]],
+            \"type\":\"count\",
+            \"interval\": 20,
+            \"host\":\"$hostname\",
+            \"tags\":[\"environment:$INSTANCE_ENV\",\"team:$TEAM\"]}
+           ]
+    }" \
+    "https://api.datadoghq.com/api/v1/series?api_key=$DATADOG_API_KEY"
+  fi
+}
+
 echo_out Starting backup job...
 
 function cleanup() {
+  if [[ ! -z $DATADOG_API_KEY ]];then
+    post_count_metric "cloud.sql.backup.count"
+    if [[ $success -eq 1 ]]; then
+      post_count_metric "cloud.sql.backup.success.count"
+    else
+      post_count_metric "cloud.sql.backup.failure.count"
+  fi
   echo
   echo '==================================================================================================='
   echo '|'
@@ -81,6 +105,7 @@ gcloud config set project "$PROJECT"
 
 RANDOM_STRING=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 5)
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
+success=0
 
 echo_out "Grabbing details of the latest GCP backup to create sql backup from"
 BACKUP_DATA=$(gcloud sql backups list \
@@ -186,6 +211,7 @@ while :; do
   ((NUM_CHECKS++))
   if gsutil -q stat "$TARGET_BACKUP_URI"; then
     echo_out "Object found in bucket"
+    success=1
     break
   fi
   if [[ $NUM_CHECKS == "$MAX_CHECKS" ]]; then
