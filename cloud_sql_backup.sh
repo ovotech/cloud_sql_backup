@@ -19,7 +19,7 @@ function echo_out() {
 }
 
 function post_count_metric() {
-  if [[ ! -z $DATADOG_API_KEY ]];then
+  if [[ -n $DATADOG_API_KEY ]];then
     hostname=$(hostname)
     currenttime=$(date +%s)
     curl  -X POST -H "Content-type: application/json" \
