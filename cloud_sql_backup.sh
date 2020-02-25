@@ -39,7 +39,6 @@ function post_count_metric() {
 echo_out Starting backup job...
 
 function cleanup() {
-  post_count_metric "cloud.sql.backup.count"
   if [[ $success -eq 1 ]]; then
     post_count_metric "cloud.sql.backup.success.count"
   else
