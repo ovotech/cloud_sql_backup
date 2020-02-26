@@ -39,6 +39,24 @@ The script requires some environment variables in order to function correctly:
 | SOURCE_BACKUP_INSTANCE | Name of instance that you want backing up | "uat-db" |
 | TARGET_BACKUP_BUCKET | URI of GCS bucket that the backup file will get written to | "gs://my-gcs-bucket" |
 
+Optionally, you can set some env vars for metrics:
+
+| Name        | Description   | Example |
+| ------------- |-------------|-------------|
+| DATADOG_API_KEY | The Datadog API key | "57dsfjho34kj3h4oknk4jj55"
+| TEAM | Team name, used for tagging metrics | "my-team"
+
+The following metrics should appear in Datadog (depending on the success of 
+subsequent backup attempts):
+
+- `cloud.sql.backup.started.count`
+- `cloud.sql.backup.success.count`
+- `cloud.sql.backup.failure.count`
+- `cloud.sql.backup.cleanup.count`
+
+All metrics are of type: `count`, and a value of 1 is posted when each phase of
+the backup process has been reached.
+
 ## Why is this required?
 
 GCP provide their own automated daily backup process, which is very easy to enable, so why is this required?

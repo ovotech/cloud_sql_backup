@@ -18,9 +18,32 @@ function echo_out() {
   echo "[$(date +%F_%T)] $1"
 }
 
+function post_count_metric() {
+  if [[ -n $DATADOG_API_KEY ]];then
+    hostname=$(hostname)
+    currenttime=$(date +%s)
+    curl  -X POST -H "Content-type: application/json" \
+    -d "{ \"series\" :
+             [{\"metric\":\"$1\",
+              \"points\":[[$currenttime, 1]],
+              \"type\":\"count\",
+              \"interval\": 20,
+              \"host\":\"$hostname\",
+              \"tags\":[\"environment:$INSTANCE_ENV\",\"team:$TEAM\"]}
+            ]
+    }" \
+    "https://api.datadoghq.com/api/v1/series?api_key=$DATADOG_API_KEY"
+  fi
+}
+
 echo_out Starting backup job...
 
 function cleanup() {
+  if [[ $success -eq 1 ]]; then
+    post_count_metric "cloud.sql.backup.success.count"
+  else
+    post_count_metric "cloud.sql.backup.failure.count"
+  fi
   echo
   echo '==================================================================================================='
   echo '|'
@@ -32,6 +55,7 @@ function cleanup() {
   echo_out "Deleting ephemeral db instance used for backup: $TARGET_BACKUP_INSTANCE"
   if [[ $TARGET_BACKUP_INSTANCE == *"backup"* ]]; then
     gcloud -q sql instances delete "$TARGET_BACKUP_INSTANCE"
+    post_count_metric "cloud.sql.backup.cleanup.count"
   else
     echo_out "String 'backup' not detected in target backup instance. Not deleting anything.."
   fi
@@ -81,6 +105,7 @@ gcloud config set project "$PROJECT"
 
 RANDOM_STRING=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 5)
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
+success=0
 
 echo_out "Grabbing details of the latest GCP backup to create sql backup from"
 BACKUP_DATA=$(gcloud sql backups list \
@@ -124,6 +149,7 @@ echo '|'
 echo '==================================================================================================='
 echo
 
+post_count_metric "cloud.sql.backup.started.count"
 echo_out "Restoring to $TARGET_BACKUP_INSTANCE from daily GCP backup (id: $BACKUP_ID) which was created at $BACKUP_TS"
 restore_rs=$(gcloud -q sql backups restore "$BACKUP_ID" \
   --restore-instance="$TARGET_BACKUP_INSTANCE" \
@@ -186,6 +212,7 @@ while :; do
   ((NUM_CHECKS++))
   if gsutil -q stat "$TARGET_BACKUP_URI"; then
     echo_out "Object found in bucket"
+    success=1
     break
   fi
   if [[ $NUM_CHECKS == "$MAX_CHECKS" ]]; then
