@@ -25,14 +25,12 @@ The script requires some environment variables in order to function correctly:
 
 | Name        | Description   | Example |
 | ------------- |-------------|-------------|
-| DB_VERSION    | The version of the ephemeral database instance that'll be created | "POSTGRES_9_6" |
 | DB_NAME       | The database name that'll be exported to GCS | "my-db" |
 | INSTANCE_CPU  | vCPUs of the ephemeral instance | "4" |
 | INSTANCE_ENV | Name of environment the backup process is running in. It's used in the ephemeral instance name | "nonprod" |
 | INSTANCE_MEM | Memory of instance | "7680MiB" |
 | INSTANCE_NAME_PREFIX | Prefix to add to the start of instance name | "my-backup" |
 | INSTANCE_REGION | Instance region | "europe-west1" |
-| INSTANCE_STORAGE_SIZE_GB | Disk storage capacity (must be greater than the capacity of the original instance the GCP back is taken from) | "4000" |
 | INSTANCE_STORAGE_TYPE | SSD (default) or HDD | "SSD" |
 | PROJECT | The GCP project | "my-gcp-project" |
 | SA_KEY_FILEPATH | The path to the GCP service account's .json key | "/secrets/gcp/backup-key.json" |

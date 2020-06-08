@@ -34,6 +34,92 @@ function post_count_metric() {
     }" \
     "https://api.datadoghq.com/api/v1/series?api_key=$DATADOG_API_KEY"
   fi
+
+  echo
+  echo_out "$1 metric posted"
+}
+
+function target_instance_is_runnable() {
+  gcloud sql instances describe "$TARGET_BACKUP_INSTANCE" | grep "state:" | grep "RUNNABLE" -c
+}
+
+function operation_has_finished() {
+  gcloud sql operations list -i "$TARGET_BACKUP_INSTANCE" | grep "$1" | grep "DONE" -c
+}
+
+function all_operations_have_finished() {
+  operation_details=$(gcloud sql operations list -i "$TARGET_BACKUP_INSTANCE" | sed 1,1d)
+  number_of_operations=$(echo "$operation_details" | wc -l)
+  completed_operations=$(echo "$operation_details" | grep "DONE" -c)
+
+  if [[ "${completed_operations}" -lt "${number_of_operations}" ]]; then
+    echo 0
+  else
+    echo 1
+  fi
+}
+
+function wait_for_target_instance_to_be_created() {
+  local NUM_CHECKS=0
+  local MAX_CHECKS=10
+  local SLEEP_SECONDS=30
+  echo_out "Polling GCP to check the new instance is runnable: $TARGET_BACKUP_INSTANCE (max_checks: $NUM_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
+
+  while :; do
+    ((NUM_CHECKS++))
+    if [[ $(target_instance_is_runnable) == *"1"* ]]; then
+      echo_out "Target instance is runnable"
+      break
+    fi
+    if [[ $NUM_CHECKS == "$MAX_CHECKS" ]]; then
+      echo_out "Reached check limit ($MAX_CHECKS). Aborting."
+      exit 1
+    fi
+    echo_out "Target instance not yet runnable, checking again in $SLEEP_SECONDS seconds"
+    sleep "$SLEEP_SECONDS"
+  done
+}
+
+function wait_for_restore_to_finish() {
+  local NUM_CHECKS=0
+  local MAX_CHECKS=10
+  local SLEEP_SECONDS=60
+  echo_out "Polling GCP to check whether restore to target instance has finished: $TARGET_BACKUP_INSTANCE (max_checks: $NUM_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
+
+  while :; do
+    ((NUM_CHECKS++))
+    if [[ $(operation_has_finished "RESTORE_VOLUME") == *"1"* ]]; then
+      echo_out "Restore has finished."
+      break
+    fi
+    if [[ $NUM_CHECKS == "$MAX_CHECKS" ]]; then
+      echo_out "Reached check limit ($MAX_CHECKS). Will attempt to continue, however, unlikely to be successful."
+      break
+    fi
+    echo_out "Waiting for restore to finish, checking again in $SLEEP_SECONDS seconds"
+    sleep "$SLEEP_SECONDS"
+  done
+}
+
+function wait_for_all_operations_to_finish() {
+  local NUM_CHECKS=0
+  local MAX_CHECKS=10
+  local SLEEP_SECONDS=60
+  echo_out "Polling GCP to check whether all operations on target instance have finished: $TARGET_BACKUP_INSTANCE (max_checks: $NUM_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
+
+  while :; do
+    ((NUM_CHECKS++))
+    if [[ $(all_operations_have_finished) == *"1"* ]]; then
+      echo_out "All operations have finished."
+      break
+    fi
+    if [[ $NUM_CHECKS == "$MAX_CHECKS" ]]; then
+      echo_out "Reached check limit ($MAX_CHECKS). Will attempt to continue, however, unlikely to be successful."
+      break
+    fi
+    echo_out "Not all operations have finished, checking again in $SLEEP_SECONDS seconds"
+    sleep "$SLEEP_SECONDS"
+  done
 }
 
 echo_out Starting backup job...
@@ -44,6 +130,7 @@ function cleanup() {
   else
     post_count_metric "cloud.sql.backup.failure.count"
   fi
+
   echo
   echo '==================================================================================================='
   echo '|'
@@ -51,6 +138,8 @@ function cleanup() {
   echo '|'
   echo '==================================================================================================='
   echo
+
+  wait_for_all_operations_to_finish
 
   echo_out "Deleting ephemeral db instance used for backup: $TARGET_BACKUP_INSTANCE"
   if [[ $TARGET_BACKUP_INSTANCE == *"backup"* ]]; then
@@ -81,14 +170,12 @@ command -v head >/dev/null 2>&1 || { echo "head is required" && invalid=true; }
 command -v sed >/dev/null 2>&1 || { echo "sed is required" && invalid=true; }
 command -v tr >/dev/null 2>&1 || { echo "tr is required" && invalid=true; }
 
-[ -z "$DB_VERSION" ] && echo "DB_VERSION is required" && invalid=true
 [ -z "$DB_NAME" ] && echo "DB_NAME is required" && invalid=true
 [ -z "$INSTANCE_CPU" ] && echo "INSTANCE_CPU is required" && invalid=true
 [ -z "$INSTANCE_ENV" ] && echo "INSTANCE_ENV is required" && invalid=true
 [ -z "$INSTANCE_MEM" ] && echo "INSTANCE_MEM is required" && invalid=true
 [ -z "$INSTANCE_NAME_PREFIX" ] && echo "INSTANCE_NAME_PREFIX is required" && invalid=true
 [ -z "$INSTANCE_REGION" ] && echo "INSTANCE_REGION is required" && invalid=true
-[ -z "$INSTANCE_STORAGE_SIZE_GB" ] && echo "INSTANCE_STORAGE_SIZE_GB is required" && invalid=true
 [ -z "$INSTANCE_STORAGE_TYPE" ] && echo "INSTANCE_STORAGE_TYPE is required" && invalid=true
 [ -z "$PROJECT" ] && echo "PROJECT is required" && invalid=true
 [ -z "$SA_KEY_FILEPATH" ] && echo "SA_KEY_FILEPATH is required" && invalid=true
@@ -122,6 +209,21 @@ fi
 
 TARGET_BACKUP_INSTANCE=$INSTANCE_NAME_PREFIX-$INSTANCE_ENV-$TIMESTAMP-$BACKUP_ID-$RANDOM_STRING
 
+echo_out "Grabbing the required database version and instance storage size"
+SOURCE_INSTANCE_DETAILS=$(gcloud sql instances describe "$SOURCE_BACKUP_INSTANCE")
+DB_VERSION=$(echo "$SOURCE_INSTANCE_DETAILS" | grep 'databaseVersion:' | tr -s ' ' | cut -d ' ' -f 2)
+INSTANCE_STORAGE_SIZE_GB=$(echo "$SOURCE_INSTANCE_DETAILS" | grep 'dataDiskSizeGb:' | tr -s ' ' | cut -d \' -f 2)
+
+if [ -z "$DB_VERSION" ]; then
+  echo_out "Empty database version found. Aborting."
+  exit 1
+fi
+
+if [ -z "$INSTANCE_STORAGE_SIZE_GB" ]; then
+  echo_out "Empty instance storage size found. Aborting."
+  exit 1
+fi
+
 echo
 echo '==================================================================================================='
 echo '|'
@@ -138,8 +240,11 @@ gcloud sql instances create "$TARGET_BACKUP_INSTANCE" \
   --storage-type="$INSTANCE_STORAGE_TYPE" \
   --storage-size="$INSTANCE_STORAGE_SIZE_GB" \
   --database-version="$DB_VERSION"
+echo
 
 trap cleanup EXIT
+
+wait_for_target_instance_to_be_created
 
 echo
 echo '==================================================================================================='
@@ -150,13 +255,14 @@ echo '==========================================================================
 echo
 
 post_count_metric "cloud.sql.backup.started.count"
-echo_out "Restoring to $TARGET_BACKUP_INSTANCE from daily GCP backup (id: $BACKUP_ID) which was created at $BACKUP_TS"
+echo_out "Restoring to $TARGET_BACKUP_INSTANCE from daily GCP backup for $SOURCE_BACKUP_INSTANCE (id: $BACKUP_ID) which was created at $BACKUP_TS"
 restore_rs=$(gcloud -q sql backups restore "$BACKUP_ID" \
   --restore-instance="$TARGET_BACKUP_INSTANCE" \
   --backup-instance="$SOURCE_BACKUP_INSTANCE" 2>&1 || true)
 if [[ "${restore_rs}" != *"Restored"* ]]; then
-  echo_out "Restore hasn't finished, sleeping to allow that to happen"
-  sleep 600
+  wait_for_restore_to_finish
+else
+  echo_out "Restore has finished."
 fi
 
 echo
