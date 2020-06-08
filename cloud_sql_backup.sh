@@ -53,9 +53,9 @@ function all_operations_have_finished() {
   completed_operations=$(echo "$operation_details" | grep "DONE" -c)
 
   if [[ "${completed_operations}" -lt "${number_of_operations}" ]]; then
-    echo 0
+    echo "0"
   else
-    echo 1
+    echo "1"
   fi
 }
 
@@ -63,11 +63,11 @@ function wait_for_target_instance_to_be_created() {
   local NUM_CHECKS=0
   local MAX_CHECKS=10
   local SLEEP_SECONDS=30
-  echo_out "Polling GCP to check the new instance is runnable: $TARGET_BACKUP_INSTANCE (max_checks: $NUM_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
+  echo_out "Polling GCP to check the new instance is runnable: $TARGET_BACKUP_INSTANCE (max_checks: $MAX_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
 
   while :; do
-    ((NUM_CHECKS++))
-    if [[ $(target_instance_is_runnable) == *"1"* ]]; then
+    ((NUM_CHECKS+=1))
+    if [[ "$(target_instance_is_runnable)" == "1" ]]; then
       echo_out "Target instance is runnable"
       break
     fi
@@ -84,11 +84,11 @@ function wait_for_restore_to_finish() {
   local NUM_CHECKS=0
   local MAX_CHECKS=10
   local SLEEP_SECONDS=60
-  echo_out "Polling GCP to check whether restore to target instance has finished: $TARGET_BACKUP_INSTANCE (max_checks: $NUM_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
+  echo_out "Polling GCP to check whether restore to target instance has finished: $TARGET_BACKUP_INSTANCE (max_checks: $MAX_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
 
   while :; do
-    ((NUM_CHECKS++))
-    if [[ $(operation_has_finished "RESTORE_VOLUME") == *"1"* ]]; then
+    ((NUM_CHECKS+=1))
+    if [[ "$(operation_has_finished "RESTORE_VOLUME")" == "1" ]]; then
       echo_out "Restore has finished."
       break
     fi
@@ -105,11 +105,11 @@ function wait_for_all_operations_to_finish() {
   local NUM_CHECKS=0
   local MAX_CHECKS=10
   local SLEEP_SECONDS=60
-  echo_out "Polling GCP to check whether all operations on target instance have finished: $TARGET_BACKUP_INSTANCE (max_checks: $NUM_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
+  echo_out "Polling GCP to check whether all operations on target instance have finished: $TARGET_BACKUP_INSTANCE (max_checks: $MAX_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
 
   while :; do
-    ((NUM_CHECKS++))
-    if [[ $(all_operations_have_finished) == *"1"* ]]; then
+    ((NUM_CHECKS+=1))
+    if [[ "$(all_operations_have_finished)" == "1" ]]; then
       echo_out "All operations have finished."
       break
     fi
@@ -315,7 +315,7 @@ echo_out "Polling GCS to check the new object exists: $TARGET_BACKUP_URI (max_ch
 # disable non-zero status exit so 'gsutil -q stat' doesn't throw us out
 set +e
 while :; do
-  ((NUM_CHECKS++))
+  ((NUM_CHECKS+=1))
   if gsutil -q stat "$TARGET_BACKUP_URI"; then
     echo_out "Object found in bucket"
     success=1
