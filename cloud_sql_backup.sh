@@ -125,7 +125,7 @@ function wait_for_all_operations_to_finish() {
 echo_out Starting backup job...
 
 function cleanup() {
-  if [[ $success -eq 1 ]]; then
+  if [[ "$success_count" -eq "$database_count" ]]; then
     post_count_metric "cloud.sql.backup.success.count"
   else
     post_count_metric "cloud.sql.backup.failure.count"
@@ -192,7 +192,8 @@ gcloud config set project "$PROJECT"
 
 RANDOM_STRING=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 5)
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
-success=0
+success_count=0
+database_count=0
 
 echo_out "Grabbing details of the latest GCP backup to create sql backup from"
 BACKUP_DATA=$(gcloud sql backups list \
@@ -287,45 +288,48 @@ echo '|'
 echo '==================================================================================================='
 echo
 
-TARGET_BACKUP_URI=$TARGET_BACKUP_BUCKET/$TARGET_BACKUP_INSTANCE.gz
-echo_out "Creating SQL backup file of instance: $TARGET_BACKUP_INSTANCE and exporting to $TARGET_BACKUP_URI"
-export_rs=$(gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
-  --database="$DB_NAME" 2>&1 || true)
+for db in ${DB_NAME//,/ } ; do
+    ((database_count++))
+    TARGET_BACKUP_URI=$TARGET_BACKUP_BUCKET/${TARGET_BACKUP_INSTANCE}_$db.gz
+    echo_out "Creating SQL backup file of instance: $TARGET_BACKUP_INSTANCE and exporting to $TARGET_BACKUP_URI"
+    export_rs=$(gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
+      --database="$db" 2>&1 || true)
 
-if [[ $export_rs != *"sql operations wait"* ]] && [[ $export_rs != *"done"* ]]; then
-  echo_out "Unexpected response returned for 'gcloud sql export sql...' command: $export_rs"
-  exit 1
-fi
+    if [[ $export_rs != *"sql operations wait"* ]] && [[ $export_rs != *"done"* ]]; then
+      echo_out "Unexpected response returned for 'gcloud sql export sql...' command: $export_rs"
+      exit 1
+    fi
 
-echo
-echo '==================================================================================================='
-echo '|'
-echo '| Checking the SQL backup has arrived in GCS'
-echo '|'
-echo '==================================================================================================='
-echo
+    echo
+    echo '==================================================================================================='
+    echo '|'
+    echo '| Checking the SQL backup has arrived in GCS'
+    echo '|'
+    echo '==================================================================================================='
+    echo
 
-[[ -z "$GCS_VERIFY_MAX_CHECKS" ]] && MAX_CHECKS=10 || MAX_CHECKS="$GCS_VERIFY_MAX_CHECKS"
-[[ -z "$GCS_VERIFY_TIME_INTERVAL_SECS" ]] && SLEEP_SECONDS=300 || SLEEP_SECONDS="$GCS_VERIFY_TIME_INTERVAL_SECS"
+    [[ -z "$GCS_VERIFY_MAX_CHECKS" ]] && MAX_CHECKS=10 || MAX_CHECKS="$GCS_VERIFY_MAX_CHECKS"
+    [[ -z "$GCS_VERIFY_TIME_INTERVAL_SECS" ]] && SLEEP_SECONDS=300 || SLEEP_SECONDS="$GCS_VERIFY_TIME_INTERVAL_SECS"
 
-NUM_CHECKS=0
+    NUM_CHECKS=0
 
-echo_out "Polling GCS to check the new object exists: $TARGET_BACKUP_URI (max_checks: $MAX_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
+    echo_out "Polling GCS to check the new object exists: $TARGET_BACKUP_URI (max_checks: $MAX_CHECKS, sleep_interval(s): $SLEEP_SECONDS)"
 
-# disable non-zero status exit so 'gsutil -q stat' doesn't throw us out
-set +e
-while :; do
-  ((NUM_CHECKS+=1))
-  if gsutil -q stat "$TARGET_BACKUP_URI"; then
-    echo_out "Object found in bucket"
-    success=1
-    break
-  fi
-  if [[ $NUM_CHECKS == "$MAX_CHECKS" ]]; then
-    echo_out "Reached check limit ($MAX_CHECKS). Aborting, but the 'gcloud sql export sql' op may still be in progress"
-    break
-  fi
-  echo_out "Backup file not found in bucket, checking again in $SLEEP_SECONDS seconds"
-  sleep "$SLEEP_SECONDS"
+    # disable non-zero status exit so 'gsutil -q stat' doesn't throw us out
+    set +e
+    while :; do
+      ((NUM_CHECKS+=1))
+      if gsutil -q stat "$TARGET_BACKUP_URI"; then
+        echo_out "Object found in bucket"
+        ((success_count++))
+        break
+      fi
+      if [[ $NUM_CHECKS == "$MAX_CHECKS" ]]; then
+        echo_out "Reached check limit ($MAX_CHECKS). Aborting, but the 'gcloud sql export sql' op may still be in progress"
+        break
+      fi
+      echo_out "Backup file not found in bucket, checking again in $SLEEP_SECONDS seconds"
+      sleep "$SLEEP_SECONDS"
+    done
+    set -e
 done
-set -e
