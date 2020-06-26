@@ -292,7 +292,7 @@ echo_out "Creating SQL backup file of instance: $TARGET_BACKUP_INSTANCE and expo
 export_rs=$(gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
   --database="$DB_NAME" 2>&1 || true)
 
-if [[ $export_rs != *"sql operations wait"* ]] && [[ $export_rs != *"done"* ]]; then
+if [[ $export_rs != *"sql operations wait"* ]] && [[ $export_rs != *"done"* ]] && [[ $export_rs != *"Exported"* ]]; then
   echo_out "Unexpected response returned for 'gcloud sql export sql...' command: $export_rs"
   exit 1
 fi

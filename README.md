@@ -136,3 +136,12 @@ Whilst it's recommended to monitor for failed/successful `cloud_sql_backup.sh` s
 ### Completion Check
 
 The penultimate task of the `cloud_sql_backup.sh` script is to poll GCS using `gsutil` to verify the object (SQL dump) has arrived in GCS as expected. This has to be performed out-of-band of the SQL dump process, as the dump is an operation that's triggered on the ephemeral db instance (using `gcloud sql export sql`).
+
+
+## Contributions
+
+Contributions are very welcome. Please branch or fork, and submit a PR.
+
+PRs from branches will result in an e2e test being run in CircleCI, which can
+sometimes take around 15mins. Commits from forked PRs should be made onto a
+branch in this repo, and another PR opened so the e2e test can run.
