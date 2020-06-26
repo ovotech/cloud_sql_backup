@@ -28,7 +28,7 @@ The script requires some environment variables in order to function correctly:
 | DB_NAME       | The database name that'll be exported to GCS | "my-db" |
 | INSTANCE_CPU  | vCPUs of the ephemeral instance | "4" |
 | INSTANCE_ENV | Name of environment the backup process is running in. It's used in the ephemeral instance name | "nonprod" |
-| INSTANCE_MEM | Memory of instance | "7680MiB" |
+| INSTANCE_MEM | Memory of instance (multiple of 256 MiB, min 3840MiB) | "7680MiB" |
 | INSTANCE_NAME_PREFIX | Prefix to add to the start of instance name | "my-backup" |
 | INSTANCE_REGION | Instance region | "europe-west1" |
 | INSTANCE_STORAGE_TYPE | SSD (default) or HDD | "SSD" |
@@ -89,6 +89,12 @@ When this script runs using a GCP service account, it'll need a specific set of 
     "storage.objects.get"
   ]
   ```
+
+The service account must have OWNER-role access to the `TARGET_BACKUP_BUCKET`.
+GCP creates a temporary service account during the export process, which needs
+to be able to write to your GCS bucket. The service account you provide needs
+enough permission to elevate the temporary service account's permissions on the
+bucket (they get revoked again after being used).
 
 ## Notes
 

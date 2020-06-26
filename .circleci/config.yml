@@ -25,6 +25,28 @@ jobs:
             docker build -t ovotech/cloud_sql_backup:latest .
             echo $DOCKER_PASS | docker login -u=$DOCKER_USER --password-stdin
             docker push ovotech/cloud_sql_backup
+  test_backup:
+    <<: *defaults
+
+    docker:
+      - image: google/cloud-sdk
+
+    steps:
+     - checkout
+
+     - run:
+         name: "Run backup script"
+         command: |
+           echo "$GOOGLE_CREDENTIALS" > /tmp/google_creds
+           export DB_NAME=test-db-1
+           export INSTANCE_CPU=1
+           export INSTANCE_ENV=cicd
+           export INSTANCE_MEM=3840MiB
+           export INSTANCE_NAME_PREFIX=cloud-sql-backup
+           export INSTANCE_REGION=europe-west1
+           export INSTANCE_STORAGE_TYPE=SSD
+           export SA_KEY_FILEPATH=/tmp/google_creds
+           ./cloud_sql_backup.sh
 
 workflows:
   version: 2
@@ -39,3 +61,18 @@ workflows:
   shellcheck:
     jobs:
       - shellcheck/check
+  pr_pipelines:
+    jobs:
+      - test_backup:
+          filters:
+            branches:
+              ignore: master
+  nightly_master_check:
+    triggers:
+      - schedule:
+          cron: "0 5 * * *"
+          filters:
+            branches:
+              only: master
+    jobs:
+      - test_backup
