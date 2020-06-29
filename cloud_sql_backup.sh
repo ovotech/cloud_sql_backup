@@ -29,7 +29,7 @@ function post_count_metric() {
               \"type\":\"count\",
               \"interval\": 20,
               \"host\":\"$hostname\",
-              \"tags\":[\"environment:${INSTANCE_ENV}\",\"team:${TEAM}\"]}
+              \"tags\":[\"environment:${INSTANCE_ENV}\",\"team:${TEAM}\",\"db:${DB_NAME}\"]}
             ]
     }" \
     "https://api.datadoghq.com/api/v1/series?api_key=$DATADOG_API_KEY"
