@@ -290,7 +290,7 @@ echo
 
 echo_out "Picked up database names from env: $DB_NAME"
 
-for db in ${DB_NAME//,/ } ; do
+for db in ${DB_NAME//:/ } ; do
     echo_out "Processing database: $db"
     database_count=$((database_count + 1))
     TARGET_BACKUP_URI="$TARGET_BACKUP_BUCKET/${TARGET_BACKUP_INSTANCE}_$db.gz"
