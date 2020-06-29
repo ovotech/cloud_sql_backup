@@ -288,12 +288,12 @@ echo '|'
 echo '==================================================================================================='
 echo
 
-echo_out "Picked up database names from env: $DB_NAMES"
+echo_out "Picked up database names from env: $DB_NAME"
 
 for db in ${DB_NAME//,/ } ; do
     echo_out "Processing database: $db"
     ((database_count++))
-    TARGET_BACKUP_URI=$TARGET_BACKUP_BUCKET/${TARGET_BACKUP_INSTANCE}_$db.gz
+    TARGET_BACKUP_URI="$TARGET_BACKUP_BUCKET/${TARGET_BACKUP_INSTANCE}_$db.gz"
     echo_out "Creating SQL backup file of instance: $TARGET_BACKUP_INSTANCE and exporting to $TARGET_BACKUP_URI"
     export_rs=$(gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
       --database="$db" 2>&1 || true)
