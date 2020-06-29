@@ -288,7 +288,10 @@ echo '|'
 echo '==================================================================================================='
 echo
 
+echo_out "Picked up database names from env: $DB_NAMES"
+
 for db in ${DB_NAME//,/ } ; do
+    echo_out "Processing database: $db"
     ((database_count++))
     TARGET_BACKUP_URI=$TARGET_BACKUP_BUCKET/${TARGET_BACKUP_INSTANCE}_$db.gz
     echo_out "Creating SQL backup file of instance: $TARGET_BACKUP_INSTANCE and exporting to $TARGET_BACKUP_URI"
