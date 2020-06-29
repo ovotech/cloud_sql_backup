@@ -38,7 +38,7 @@ jobs:
          name: "Run backup script"
          command: |
            echo "$GOOGLE_CREDENTIALS" > /tmp/google_creds
-           export DB_NAME=test-db-1
+           export DB_NAME=test-db-1:test-db-2
            export INSTANCE_CPU=1
            export INSTANCE_ENV=cicd
            export INSTANCE_MEM=3840MiB
