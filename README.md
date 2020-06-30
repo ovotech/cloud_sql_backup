@@ -119,6 +119,8 @@ name = <instance_name_prefix>-<instance_env>-<timestamp>-<gcp_managed_backup_id>
 - `gcp_managed_backup_id` is the ID of the latest GCP managed backup
 - `random_string` is the value of `LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 5`
 
+The `.gz` file that gets written to GCS will also have the db name as the last element before the file extension.
+
 ### Backup candidate
 
 The ID of the latest successful GCP managed backup is obtained using:
