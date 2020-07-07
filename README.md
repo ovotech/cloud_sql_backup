@@ -25,7 +25,7 @@ The script requires some environment variables in order to function correctly:
 
 | Name        | Description   | Example |
 | ------------- |-------------|-------------|
-| DB_NAME       | The database name that'll be exported to GCS | "my-db" |
+| DB_NAME (colon separated)      | The database name(s) that'll be exported to GCS | "my-db" or "my-db-1:my-db-2"|
 | INSTANCE_CPU  | vCPUs of the ephemeral instance | "4" |
 | INSTANCE_ENV | Name of environment the backup process is running in. It's used in the ephemeral instance name | "nonprod" |
 | INSTANCE_MEM | Memory of instance (multiple of 256 MiB, min 3840MiB) | "7680MiB" |
@@ -118,6 +118,8 @@ name = <instance_name_prefix>-<instance_env>-<timestamp>-<gcp_managed_backup_id>
 - `instance_name_prefix` and `instance_env` are obtained from [env vars](#Configuring)
 - `gcp_managed_backup_id` is the ID of the latest GCP managed backup
 - `random_string` is the value of `LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 5`
+
+The `.gz` file that gets written to GCS will also have the db name as the last element before the file extension.
 
 ### Backup candidate
 
