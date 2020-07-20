@@ -240,7 +240,8 @@ gcloud sql instances create "$TARGET_BACKUP_INSTANCE" \
   --region="$INSTANCE_REGION" \
   --storage-type="$INSTANCE_STORAGE_TYPE" \
   --storage-size="$INSTANCE_STORAGE_SIZE_GB" \
-  --database-version="$DB_VERSION"
+  --database-version="$DB_VERSION" \
+  --require-ssl
 echo
 
 trap cleanup EXIT
