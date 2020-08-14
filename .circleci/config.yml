@@ -22,9 +22,12 @@ jobs:
       - run:
           name: "Docker  build and push"
           command: |
-            docker build -t ovotech/cloud_sql_backup:latest .
+            IMAGE_NAME=ovotech/cloud_sql_backup
+            docker build -t $IMAGE_NAME:latest .
+            docker tag $IMAGE_NAME:latest $IMAGE_NAME:$CIRCLE_TAG
             echo $DOCKER_PASS | docker login -u=$DOCKER_USER --password-stdin
-            docker push ovotech/cloud_sql_backup
+            docker push $IMAGE_NAME:latest
+            docker push $IMAGE_NAME:$CIRCLE_TAG
   test_backup:
     <<: *defaults
 
