@@ -1,4 +1,4 @@
-FROM google/cloud-sdk:alpine
+FROM google/cloud-sdk:319.0.0-alpine
 
 ADD cloud_sql_backup.sh cloud_sql_backup.sh
 
