@@ -70,10 +70,10 @@ workflows:
           filters:
             branches:
               ignore: master
-  nightly_master_check:
+  daily_master_check:
     triggers:
       - schedule:
-          cron: "0 5 * * *"
+          cron: "0 8 * * *"
           filters:
             branches:
               only: master
