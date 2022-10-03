@@ -171,6 +171,7 @@ command -v gcloud >/dev/null 2>&1 || { echo "gcloud is required" && invalid=true
 command -v head >/dev/null 2>&1 || { echo "head is required" && invalid=true; }
 command -v sed >/dev/null 2>&1 || { echo "sed is required" && invalid=true; }
 command -v tr >/dev/null 2>&1 || { echo "tr is required" && invalid=true; }
+command -v jq >/dev/null 2>&1 || { echo "jq is required" && invalid=jque; }
 
 [ -z "$DB_NAME" ] && echo "DB_NAME is required" && invalid=true
 [ -z "$INSTANCE_CPU" ] && echo "INSTANCE_CPU is required" && invalid=true
@@ -304,58 +305,65 @@ for db in ${DB_NAME//:/ } ; do
     set +e
 
     gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
-	--database="$db" > /tmp/sql-export.log 2>&1
+	--database="$db" --async --format=json > /tmp/sql-export.log 2>&1
     EXIT_CODE=$?
     echo_out "SQL export exit code: $EXIT_CODE"
-
-    set -e
 
     cat /tmp/sql-export.log
 
     # check if there's any error
     [[ $EXIT_CODE -ne 0 ]] && {
-        SQL_EXPORT_LOGS="$(cat /tmp/sql-export.log)"
-
-	echo_out "Unexpected response returned for 'gcloud sql export sql:\n$SQL_EXPORT_LOGS"
-
-	# it's a long-running job, need to extend the waiting time
-        [[ $SQL_EXPORT_LOGS =~ "is taking longer than expected. You can continue waiting for the operation by running" ]] && {
-
-	    # we need to wait no longer,
-	    # extract the command to wait for the job to finish
-            WAIT_ARGS="$(echo $SQL_EXPORT_LOGS | \
-            tail -1 | \
-            sed -r 's/.*gcloud beta sql operations wait --project (.*)`/\1/')"
-	    IFS=' ' read -r -a ARGS_ARRAY <<< "$WAIT_ARGS"
-	    GCP_PROJECT="${ARGS_ARRAY[0]}"
-	    UUID="${ARGS_ARRAY[1]}"
-
-	    echo_out "Waiting for export job to finish"
-
-	    # validate UUID
-	    if [[ ! ${UUID//-/} =~ ^[[:xdigit:]]{32}$ ]];
-	    then
-		echo_out "Invalid job number, not a UUID"
-	        exit 1
-	    fi
-
-	    # validate project name
-	    if [[ "$PROJECT" != "$GCP_PROJECT" ]];
-	    then
-	        echo_out "Unexpected project name"
-	        exit 1
-	    fi
-	    # wait for the operation to finish,
-	    # but set a timeout
-            gcloud beta sql operations wait \
-		--timeout=$TIMEOUT \
-		--project "$GCP_PROJECT" "$UUID"
-        } || {
-
-	    # nothing we can do, export failed
-	    exit 1
-        }
+	# nothing we can do, export failed
+        exit 1
     }
+
+    set -e
+
+
+    JOB_ID="$(cat /tmp/sql-export.log | \
+	jq '.[0]' | \
+	sed -r 's/.*operations\/(.*)"/\1/')"
+
+    # validate UUID
+    if [[ ! ${JOB_ID//-/} =~ ^[[:xdigit:]]{32}$ ]];
+    then
+        echo_out "Invalid job number, not a UUID"
+        exit 1
+    fi
+
+    END=$((SECONDS+TIMEOUT))
+
+    while [[ $SECONDS -lt $END ]];
+    do
+
+	sleep 300
+
+        STATUS="$(gcloud beta sql operations describe "$JOB_ID" --format=json | \
+	    jq -r '.status')"
+
+	case $STATUS in
+	DONE)
+	    echo_out "job $JOB_ID completed"
+	    break
+	    ;;
+	RUNNING|PENDING)
+	    # NOP
+	    ;;
+	SQL_OPERATION_STATUS_UNSPECIFIED)
+	    echo_out "job $JOB_ID has unknown status"
+            STATUS="$(gcloud beta sql operations describe "$JOB_ID" --format=json)"
+	    echo_out "$STATUS"
+	    exit 1
+	    ;;
+	*)
+	    echo_out "job $JOB_ID has unknown status"
+            STATUS="$(gcloud beta sql operations describe "$JOB_ID" --format=json)"
+	    echo_out "$STATUS"
+	    exit 1
+	    ;;
+        esac
+
+    done
 
     rm -f /tmp/sql-export.log
 
