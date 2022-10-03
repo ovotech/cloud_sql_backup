@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e
+
 function echo_out() {
-  echo "[$(date +%F_%T)] $1"
+  echo -e "[$(date +%F_%T)] $1"
 }
 
 function post_count_metric() {
@@ -169,6 +171,7 @@ command -v gcloud >/dev/null 2>&1 || { echo "gcloud is required" && invalid=true
 command -v head >/dev/null 2>&1 || { echo "head is required" && invalid=true; }
 command -v sed >/dev/null 2>&1 || { echo "sed is required" && invalid=true; }
 command -v tr >/dev/null 2>&1 || { echo "tr is required" && invalid=true; }
+command -v jq >/dev/null 2>&1 || { echo "jq is required" && invalid=jque; }
 
 [ -z "$DB_NAME" ] && echo "DB_NAME is required" && invalid=true
 [ -z "$INSTANCE_CPU" ] && echo "INSTANCE_CPU is required" && invalid=true
@@ -181,6 +184,8 @@ command -v tr >/dev/null 2>&1 || { echo "tr is required" && invalid=true; }
 [ -z "$SA_KEY_FILEPATH" ] && echo "SA_KEY_FILEPATH is required" && invalid=true
 [ -z "$SOURCE_BACKUP_INSTANCE" ] && echo "SOURCE_BACKUP_INSTANCE is required" && invalid=true
 [ -z "$TARGET_BACKUP_BUCKET" ] && echo "TARGET_BACKUP_BUCKET is required" && invalid=true
+# default timeout for sql export: 3 hours
+[ -z "$TIMEOUT" ] && TIMEOUT=10800
 
 if [ "$invalid" = true ] ; then
     exit 1
@@ -296,13 +301,72 @@ for db in ${DB_NAME//:/ } ; do
     database_count=$((database_count + 1))
     TARGET_BACKUP_URI="$TARGET_BACKUP_BUCKET/${TARGET_BACKUP_INSTANCE}_$db.gz"
     echo_out "Creating SQL backup file of instance: $TARGET_BACKUP_INSTANCE and exporting to $TARGET_BACKUP_URI"
-    export_rs=$(gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
-      --database="$db" 2>&1 || true)
 
-    if [[ $export_rs != *"sql operations wait"* ]] && [[ $export_rs != *"done"* ]] && [[ $export_rs != *"Exported"* ]]; then
-      echo_out "Unexpected response returned for 'gcloud sql export sql...' command: $export_rs"
-      exit 1
+    set +e
+
+    gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
+	--database="$db" --async --format=json > /tmp/sql-export.log 2>&1
+    EXIT_CODE=$?
+    echo_out "SQL export exit code: $EXIT_CODE"
+
+    cat /tmp/sql-export.log
+
+    # check if there's any error
+    [[ $EXIT_CODE -ne 0 ]] && {
+	# nothing we can do, export failed
+        exit 1
+    }
+
+    set -e
+
+
+    JOB_ID="$(cat /tmp/sql-export.log | \
+	jq '.[0]' | \
+	sed -r 's/.*operations\/(.*)"/\1/')"
+
+    # validate UUID
+    if [[ ! ${JOB_ID//-/} =~ ^[[:xdigit:]]{32}$ ]];
+    then
+        echo_out "Invalid job number, not a UUID"
+        exit 1
     fi
+
+    END=$((SECONDS+TIMEOUT))
+
+    while [[ $SECONDS -lt $END ]];
+    do
+
+	sleep 300
+
+        STATUS="$(gcloud beta sql operations describe "$JOB_ID" --format=json | \
+	    jq -r '.status')"
+
+	case $STATUS in
+	DONE)
+	    echo_out "job $JOB_ID completed"
+	    break
+	    ;;
+	RUNNING|PENDING)
+	    # NOP
+	    ;;
+	SQL_OPERATION_STATUS_UNSPECIFIED)
+	    echo_out "job $JOB_ID has unknown status"
+            STATUS="$(gcloud beta sql operations describe "$JOB_ID" --format=json)"
+	    echo_out "$STATUS"
+	    exit 1
+	    ;;
+	*)
+	    echo_out "job $JOB_ID has unknown status"
+            STATUS="$(gcloud beta sql operations describe "$JOB_ID" --format=json)"
+	    echo_out "$STATUS"
+	    exit 1
+	    ;;
+        esac
+
+    done
+
+    rm -f /tmp/sql-export.log
+
 
     echo
     echo '==================================================================================================='
