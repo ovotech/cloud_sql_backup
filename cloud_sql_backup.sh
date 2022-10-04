@@ -305,22 +305,10 @@ for db in ${DB_NAME//:/ } ; do
     TARGET_BACKUP_URI="$TARGET_BACKUP_BUCKET/${TARGET_BACKUP_INSTANCE}_$db.gz"
     echo_out "Creating SQL backup file of instance: $TARGET_BACKUP_INSTANCE and exporting to $TARGET_BACKUP_URI"
 
-    set +e
-
     gcloud sql export sql "$TARGET_BACKUP_INSTANCE" "$TARGET_BACKUP_URI" \
 	--database="$db" --async --format=json > /tmp/sql-export.log 2>&1
-    EXIT_CODE=$?
-    echo_out "SQL export exit code: $EXIT_CODE"
 
     cat /tmp/sql-export.log
-
-    # check if there's any error
-    [[ $EXIT_CODE -ne 0 ]] && {
-	# nothing we can do, export failed
-        exit 1
-    }
-
-    set -e
 
     JOB_ID="$(jq '.[0]' < /tmp/sql-export.log | \
 	sed -r 's/.*operations\/(.*)"/\1/')"
