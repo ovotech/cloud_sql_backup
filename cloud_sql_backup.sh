@@ -124,7 +124,7 @@ function wait_for_all_operations_to_finish() {
   done
 }
 
-echo_out Starting backup job...
+echo_out "Starting backup job..."
 
 function cleanup() {
   if [[ "$success_count" -eq "$database_count" ]]; then
