@@ -200,6 +200,9 @@ TIMESTAMP=$(date +%Y%m%d%H%M%S)
 success_count=0
 database_count=0
 
+apt-get update -y
+apt-get install -y jq
+
 echo_out "Grabbing details of the latest GCP backup to create sql backup from"
 BACKUP_DATA=$(gcloud sql backups list \
   --instance "$SOURCE_BACKUP_INSTANCE" \
@@ -318,9 +321,6 @@ for db in ${DB_NAME//:/ } ; do
     }
 
     set -e
-
-    	 apt-get update -y
-	  apt-get install -y jq
 
     JOB_ID="$(jq '.[0]' < /tmp/sql-export.log | \
 	sed -r 's/.*operations\/(.*)"/\1/')"
