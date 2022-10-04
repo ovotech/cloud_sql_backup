@@ -171,7 +171,7 @@ command -v gcloud >/dev/null 2>&1 || { echo "gcloud is required" && invalid=true
 command -v head >/dev/null 2>&1 || { echo "head is required" && invalid=true; }
 command -v sed >/dev/null 2>&1 || { echo "sed is required" && invalid=true; }
 command -v tr >/dev/null 2>&1 || { echo "tr is required" && invalid=true; }
-command -v jq >/dev/null 2>&1 || { echo "jq is required" && apt-get update -y && apt-get install -y jq; }
+command -v jq >/dev/null 2>&1 || { echo "jq is required"; }
 
 [ -z "$DB_NAME" ] && echo "DB_NAME is required" && invalid=true
 [ -z "$INSTANCE_CPU" ] && echo "INSTANCE_CPU is required" && invalid=true
@@ -319,6 +319,8 @@ for db in ${DB_NAME//:/ } ; do
 
     set -e
 
+    	 apt-get update -y
+	  apt-get install -y jq
 
     JOB_ID="$(jq '.[0]' < /tmp/sql-export.log | \
 	sed -r 's/.*operations\/(.*)"/\1/')"
