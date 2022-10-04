@@ -40,7 +40,6 @@ jobs:
      - run:
          name: "Run backup script"
          command: |
-           #apt-get -qq install -y jq
            echo "$GOOGLE_CREDENTIALS" | base64 -d > /tmp/google_creds
            export DB_NAME=test-db-1:test-db-2
            export INSTANCE_CPU=1
