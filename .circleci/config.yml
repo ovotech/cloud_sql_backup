@@ -42,6 +42,7 @@ jobs:
           command: |
             apt-get update -y
             apt-get install -y jq
+
       - run:
           name: "Run backup script"
           command: |
