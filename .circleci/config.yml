@@ -49,6 +49,8 @@ jobs:
            export INSTANCE_REGION=europe-west1
            export INSTANCE_STORAGE_TYPE=SSD
            export SA_KEY_FILEPATH=/tmp/google_creds
+           apt-get update -y
+           apt-get install -y jq
            ./cloud_sql_backup.sh
 
 workflows:
