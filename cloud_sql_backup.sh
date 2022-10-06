@@ -163,7 +163,7 @@ function cleanup() {
   gsutil acl ch -d "$DB_SA_ID" "$TARGET_BACKUP_BUCKET"
 }
 
-set -xe
+set -e
 
 command -v cut >/dev/null 2>&1 || { echo "cut is required" && invalid=true; }
 command -v date >/dev/null 2>&1 || { echo "date is required" && invalid=true; }
