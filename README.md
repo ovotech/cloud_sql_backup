@@ -16,6 +16,7 @@ The `cloud_sql_backup.sh` script can be used on its own, or in a [Docker image](
     - date
     - gcloud
     - head
+    - jq
     - sed
     - tr
 
@@ -44,7 +45,7 @@ Optionally, you can set some env vars for metrics:
 | DATADOG_API_KEY | The Datadog API key | "57dsfjho34kj3h4oknk4jj55"
 | TEAM | Team name, used for tagging metrics | "my-team"
 
-The following metrics should appear in Datadog (depending on the success of 
+The following metrics should appear in Datadog (depending on the success of
 subsequent backup attempts):
 
 - `cloud.sql.backup.started.count`

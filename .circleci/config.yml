@@ -28,6 +28,7 @@ jobs:
             echo $DOCKER_PASS | docker login -u=$DOCKER_USER --password-stdin
             docker push $IMAGE_NAME:latest
             docker push $IMAGE_NAME:$CIRCLE_TAG
+
   test_backup:
     <<: *defaults
 
@@ -35,21 +36,27 @@ jobs:
       - image: google/cloud-sdk
 
     steps:
-     - checkout
+      - checkout
 
-     - run:
-         name: "Run backup script"
-         command: |
-           echo "$GOOGLE_CREDENTIALS" | base64 -d > /tmp/google_creds
-           export DB_NAME=test-db-1:test-db-2
-           export INSTANCE_CPU=1
-           export INSTANCE_ENV=cicd
-           export INSTANCE_MEM=3840MiB
-           export INSTANCE_NAME_PREFIX=cloud-sql-backup
-           export INSTANCE_REGION=europe-west1
-           export INSTANCE_STORAGE_TYPE=SSD
-           export SA_KEY_FILEPATH=/tmp/google_creds
-           ./cloud_sql_backup.sh
+      - run:
+          name: "Install dependencies"
+          command: |
+            apt-get update -y
+            apt-get install -y jq
+
+      - run:
+          name: "Run backup script"
+          command: |
+            echo "$GOOGLE_CREDENTIALS" | base64 -d > /tmp/google_creds
+            export DB_NAME=test-db-1:test-db-2
+            export INSTANCE_CPU=1
+            export INSTANCE_ENV=cicd
+            export INSTANCE_MEM=3840MiB
+            export INSTANCE_NAME_PREFIX=cloud-sql-backup
+            export INSTANCE_REGION=europe-west1
+            export INSTANCE_STORAGE_TYPE=SSD
+            export SA_KEY_FILEPATH=/tmp/google_creds
+            ./cloud_sql_backup.sh
 
 workflows:
   version: 2
